@@ -1,6 +1,6 @@
 from scipy.optimize import minimize
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt 
 def fit_GLM(x,y,dt,kbasprs,ihbasprs,prs=None,nkt=100,softRect=0,plotFlag=True,maxIter=1000,tolFun=1e-12,L2pen=0):
     from utilities.BasisFunctions import makeBasis_StimKernel,makeBasis_PostSpike, sameconv
     from utilities.negloglike_glm import negloglike_glm_basis
@@ -41,11 +41,11 @@ def fit_GLM(x,y,dt,kbasprs,ihbasprs,prs=None,nkt=100,softRect=0,plotFlag=True,ma
     nkb = kbasis.shape[1]
     lenkb = kbasis.shape[0]
     kbasis = np.zeros((int(lenkb / dt), nkb))
-    # Perform interpolation for each column
     for bNum in range(nkb):
-        original_time_points = np.arange(1, lenkb + 1)
-        new_time_points = np.linspace(1, lenkb, int(lenkb / dt))  # New time points with lenkb/dt samples
+        original_time_points = np.arange(1, lenkb + 1)  # 1-based indices
+        new_time_points = np.linspace(1, lenkb, int(lenkb / dt))  # Inclusive range
         kbasis[:, bNum] = np.interp(new_time_points, original_time_points, kbasisTemp[:, bNum])
+
 
 
     #Post-spike basis vectors
@@ -55,8 +55,9 @@ def fit_GLM(x,y,dt,kbasprs,ihbasprs,prs=None,nkt=100,softRect=0,plotFlag=True,ma
     nhbasis = hbasis.shape[1]  #Number of basis functions for h
 
     if prs is None or len(prs) == 0:
-        prs = np.random.randn(nkbasis + nhbasis + 1) * 0.01  #Revisar que tan importante es iniciarlos en 0 o cerca de 0. 
-        # prs = np.zeros(nkbasis + nhbasis + 1)  # Initialize parameters
+        np.random.seed(57)
+        prs = np.random.randn(nkbasis + nhbasis + 1) * 0.01  
+    # prs = np.zeros(nkbasis + nhbasis + 1)  # Initialize parameters
 
     ## Let's convolve the basis functions with the stimulus
     # convolution matrices
@@ -71,23 +72,19 @@ def fit_GLM(x,y,dt,kbasprs,ihbasprs,prs=None,nkt=100,softRect=0,plotFlag=True,ma
     for hnum in range(nhbasis):
         yconvhi[:, hnum] = sameconv(y, np.flipud(hbasis[:, hnum])) #revisar que convulucion hacer. Ahorita es FFT. 
 
-    
-    # print("xconvki sample (first 5 rows):\n", xconvki[:5, :])
-    # print("xconvki sample (last 5 rows):\n", xconvki[-5:, :])
-    # print("yconvhi sample (first 5 rows):\n", yconvhi[:5, :])
-    # print("yconvhi sample (last 5 rows):\n", yconvhi[-5:, :])
  
     if softRect == 0:
-        def NL(g, clip_val=300): #no estoy seguro. 300 parece funcionar y parece un techo biologico. 
-            return np.exp(np.clip(g, -clip_val, clip_val))
+        def NL(g):
+            """Numerically stable nonlinearity."""
+            return np.exp(np.clip(g, -500, 500)) 
     else:
-        NL = lambda g: np.log(1 + np.exp(g))  # Soft-rectified funcion
+        print('nope')
+        # NL = lambda g: np.log(1 + np.exp(g))  # Soft-rectified funcion
     
     ## LL minimization
     def objective(prs):
         negloglike, dL, H = negloglike_glm_basis(prs, NL, xconvki, yconvhi, y, dt, refreshRate, L2pen)
-        print(f"Negative Log-Likelihood: {negloglike}")
-        print(f"Gradient Sample (first 5): {dL[:5]}")
+        
         return negloglike, dL
 
     # Wrapper for scipy.optimize to only return the objective value
@@ -99,9 +96,11 @@ def fit_GLM(x,y,dt,kbasprs,ihbasprs,prs=None,nkt=100,softRect=0,plotFlag=True,ma
         _, dL = objective(prs)
         return dL
     
+    # print(f"Shape of lambda_pred: {lambda_pred.shape}")
+
     ## Parameter optimization
     result = minimize(objective_for_minimize, prs, jac=gradient_for_minimize, method='L-BFGS-B', 
-                      options={'maxiter': maxIter, 'BFGS ': tolFun})
+                  options={'maxiter': maxIter, 'ftol': tolFun})
 
     # Extract optimized parameters
     prs_opt = result.x

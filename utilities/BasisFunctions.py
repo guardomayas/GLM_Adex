@@ -157,30 +157,25 @@ def makeBasis_PostSpike(ihprs,dt,iht0=None):
 def sameconv(A, B):
     am = len(A)
     bm = len(B)
+    print("A, B shape", A.shape, B.shape)
     nn = am + bm - 1  # Full length of convolution result
-
-    # FFT-based convolution (flip B for causal filtering)
-    G = np.fft.ifft(np.fft.fft(A, nn) * np.fft.fft(np.flipud(B), nn)).real
-
-    # Slice the result to match the length of A (causal filtering)
+    G = np.fft.ifft(np.fft.fft(A, nn) * np.fft.fft(np.flip(B), nn)).real
     G = G[:am]
-
+    
     return G
+
+# def sameconv(A, B):
+#     from scipy.signal import convolve
+#     G = convolve(A, B[::-1], mode='same')
+#     return G
+
 
 # def sameconv(A, B):
 #     am = len(A)
 #     bm = len(B)
-    
-#     # time domain convulution
-#     G = np.convolve(A, B, mode='same')
-    
-#     # Truncate the result to match the size of A
-#     G = G[:am]
+#     from scipy.signal import convolve
+#     G = convolve(A, B[::-1], mode='same')
+
     
 #     return G
 
-# def sameconv(A, B):
-#     # Perform convolution using numpy's convolve with 'same' mode
-#     G = np.convolve(A, B, mode='same')
-    
-#     return G
